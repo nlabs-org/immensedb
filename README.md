@@ -11,10 +11,6 @@ UTILITIES
 
   ImmenseDB run script "c:\\script.nsql"        - Run script
 
-BUILDING
-
-  See docs/building.md.
-
 RUNNING
 
   For command line options invoke:
