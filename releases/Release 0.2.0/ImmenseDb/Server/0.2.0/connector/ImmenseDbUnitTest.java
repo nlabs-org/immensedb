@@ -4,11 +4,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.Statement;
-
 import junit.framework.Assert;
-
 import org.junit.Test;
-
 import com.immensedb.jdbc.ImmenseDbCollection;
 
 public class ImmenseDbUnitTest {
@@ -1988,6 +1985,144 @@ public class ImmenseDbUnitTest {
 		
 	
 	
+	
+	@Test
+	public void transactionLock() throws Exception {
+		con=createDnUnSQlConnection();
+		
+		Statement stmt=con.createStatement();
+		boolean status=stmt.execute("create db DbTest");
+		status=stmt.execute("use DbTest");
+		status=stmt.execute("create collection DbTestCollection");
+	
+		
+        PreparedStatement pstmt=con.prepareStatement("insert into DbTestCollection value {\"id\":?,\"userId\":?,\"password\":?,\"access\":[{\"accessId\":?,\"isActive\":\"Y\"},{\"accessId\":?,\"isActive\":\"Y\"},{\"accessId\":?,\"isActive\":\"N\"}]}");
+		
+		//System.out.println("start1 "+(new Date()));
+		pstmt.setInt(1,696356);
+		pstmt.setString(2,"\"dibakar\"");
+		pstmt.setString(3,"\"dibakar123\"");
+		pstmt.setInt(4,1);
+		pstmt.setInt(5,2);
+		pstmt.setInt(6,3);
+    	status=pstmt.execute();
+	
+    	pstmt.setInt(1,696357);
+    	pstmt.setString(2,"\"pravakar\"");
+		pstmt.setString(3,"\"pravakar123\"");
+		pstmt.setInt(4,1);
+		pstmt.setInt(5,6);
+		pstmt.setInt(6,5);
+    	status=pstmt.execute();
+		
+    	pstmt.setInt(1,696358);
+    	pstmt.setString(2,"\"Mita\"");
+		pstmt.setString(3,"\"Mita123\"");
+		pstmt.setInt(4,1);
+		pstmt.setInt(5,6);
+		pstmt.setInt(6,5);
+    	status=pstmt.execute();
+		
+    	
+    	
+    	Statement stmnt=con.createStatement();
+       	ResultSet  rs=stmnt.executeQuery("select * from DbTestCollection"); 
+       	int i=0;
+
+   	    while(rs.next()) {
+         	 ImmenseDbCollection collection=(ImmenseDbCollection)  rs.getObject(1);
+            // System.out.println("CM 1"+collection);
+         	 i++;
+
+        }
+   	    
+   	    con.setAutoCommit(false);
+   	    stmnt.execute("delete from DbTestCollection where id=696357"); 
+   	 
+   	    Connection con1=createDnUnSQlConnection();
+   	    Statement stmnt1=con1.createStatement();
+   	    status=stmnt1.execute("use DbTest");
+   	    int j=0;
+    	
+   	    try{
+   	    	stmnt1.executeQuery("update DbTestCollection set userId='transaction' where id=696357"); 
+   	    }catch(Exception e){
+   	    //	System.out.println("Error "+ e.getMessage());
+   	    	if(e.getMessage().equals("{\"status\":\"failed\",\"count\":\"0\",\"message\":\"Transaction timeout. Resource is locked\"}"))
+   	    		j++;
+   	    }
+		con.commit();
+			
+		rs=stmnt.executeQuery("update DbTestCollection set userId='transaction' where id=696357"); 
+   	    
+		
+		
+    	status=stmt.execute("drop db DbTest");
+    	
+    	con1.close(); 
+		con.close();
+		Assert.assertEquals(3,i);
+		Assert.assertEquals(1,j);
+	}
+		
+	
+	
+	
+	@Test
+	public void indexAddRemoveAlter() throws Exception {
+	con=createDnUnSQlConnection();
+		
+		Statement stmt=con.createStatement();
+		boolean status;
+	
+		status=stmt.execute("create db DbTest");
+		status=stmt.execute("use DbTest");
+		//status=stmt.execute("drop index dnTestIII");
+		status=stmt.execute("create index dnTestIII on testCollection");
+
+    	Statement stmnt=con.createStatement();
+       	int i=0;
+        
+        ResultSet  rs=stmnt.executeQuery("show indexes");// where address.cityCode=5"); 
+	    while(rs.next()) {
+      	 ImmenseDbCollection collection=(ImmenseDbCollection)  rs.getObject(1);
+      	 if(collection.toString().equals("{\"name\":\"dnTestIII\"}"))      		 
+      		 i++;
+          //System.out.println("CM 1"+collection);
+        }
+    	
+	   status=stmt.execute("alter index dnTestIII dnTestA");
+	    rs=stmnt.executeQuery("show indexes");// where address.cityCode=5"); 
+	    while(rs.next()) {
+      	 ImmenseDbCollection collection=(ImmenseDbCollection)  rs.getObject(1);
+      	 if(collection.toString().equals("{\"name\":\"dnTestA\"}"))      		 
+      		 i++;
+
+      		// System.out.println("CM 2"+collection);
+        }
+////	    
+	    try{
+	    	status=stmt.execute("drop index dnTestA");
+	    }
+	    catch(Exception e){
+	    	
+	    }
+	    
+	    rs=stmnt.executeQuery("show indexes");// where address.cityCode=5"); 
+	    while(rs.next()) {
+      	 ImmenseDbCollection collection=(ImmenseDbCollection)  rs.getObject(1);
+      //	 if(collection.toString().equals("{\"user\":\"manager\",\"password\":\"pwd123\",\"role\":[]}"))      		 
+      		 i++;
+          System.out.println("CM 3"+collection);
+        }
+	   
+	    status=stmt.execute("drop db DbTest");
+    	con.close();
+		Assert.assertEquals(2,i);
+
+	}	
+	
+	
 	@Test
 	public void closeDb() throws Exception {
 		con=createDnUnSQlConnection();
@@ -2006,6 +2141,116 @@ public class ImmenseDbUnitTest {
 		
 	}
 	
+	@Test
+	public void userAddRemoveAlter() throws Exception {
+		con=createDnUnSQlConnection();
+		
+		Statement stmt=con.createStatement();
+		boolean status;
+		//stmt.execute("drop db DbTest");
+		//status=stmt.execute("create db DbTest");
+		status=stmt.execute("create user manager identified by pwd123");
+	 	
+    	Statement stmnt=con.createStatement();
+       	int i=0;
+        
+        ResultSet  rs=stmnt.executeQuery("show users");// where address.cityCode=5"); 
+	    while(rs.next()) {
+      	 ImmenseDbCollection collection=(ImmenseDbCollection)  rs.getObject(1);
+      	 if(collection.toString().equals("{\"user\":\"manager\",\"password\":\"pwd123\",\"role\":[]}"))      		 
+      		 i++;
+          //System.out.println("CM 1"+collection);
+        }
+    	
+	    status=stmt.execute("alter user manager identified by pwd2345");
+	    rs=stmnt.executeQuery("show users");// where address.cityCode=5"); 
+	    while(rs.next()) {
+      	 ImmenseDbCollection collection=(ImmenseDbCollection)  rs.getObject(1);
+      	 if(collection.toString().equals("{\"user\":\"manager\",\"password\":\"pwd2345\",\"role\":[]}"))      		 
+      		 i++;
+         // System.out.println("CM 1"+collection);
+        }
+	    
+	    status=stmt.execute("drop user manager");
+	    rs=stmnt.executeQuery("show users");// where address.cityCode=5"); 
+	    while(rs.next()) {
+      	 ImmenseDbCollection collection=(ImmenseDbCollection)  rs.getObject(1);
+      	 if(collection.toString().equals("{\"user\":\"manager\",\"password\":\"pwd123\",\"role\":[]}"))      		 
+      		 i++;
+          //System.out.println("CM 1"+collection);
+        }
+	    
+    	con.close();
+		Assert.assertEquals(2,i);
+
+	}	
+	
+	@Test
+	public void roleGrantRevoke() throws Exception {
+		con=createDnUnSQlConnection();
+		
+		Statement stmt=con.createStatement();
+		boolean status;
+		//stmt.execute("drop db DbTest");
+		//status=stmt.execute("drop user manager");
+		status=stmt.execute("create user manager identified by pwd123");
+	 	
+    	Statement stmnt=con.createStatement();
+       	int i=0;
+        
+        ResultSet  rs=stmnt.executeQuery("show users");// where address.cityCode=5"); 
+	    while(rs.next()) {
+      	 ImmenseDbCollection collection=(ImmenseDbCollection)  rs.getObject(1);
+      	 if(collection.toString().equals("{\"user\":\"manager\",\"password\":\"pwd123\",\"role\":[]}"))      		 
+      		 i++;
+        ///  System.out.println("CM 1"+collection);
+        }
+    	
+	    status=stmt.execute("grant insert on testdb to manager");
+	    rs=stmnt.executeQuery("show users");// where address.cityCode=5"); 
+	    while(rs.next()) {
+      	 ImmenseDbCollection collection=(ImmenseDbCollection)  rs.getObject(1);
+      	 if(collection.toString().equals("{\"user\":\"manager\",\"password\":\"pwd123\",\"role\":[\"insert on testdb\"]}"))      		 
+      		 i++;
+         /// System.out.println("CM 2"+collection);
+        }
+	    
+	    status=stmt.execute("grant admin to manager");
+	    rs=stmnt.executeQuery("show users");// where address.cityCode=5"); 
+	    while(rs.next()) {
+      	 ImmenseDbCollection collection=(ImmenseDbCollection)  rs.getObject(1);
+      	 if(collection.toString().equals("{\"user\":\"manager\",\"password\":\"pwd123\",\"role\":[\"admin\",\"insert on testdb\"]}"))      		 
+      		 i++;
+         // System.out.println("CM 3"+collection);
+        }
+	    
+	    
+	    status=stmt.execute("revoke admin from manager");
+	    rs=stmnt.executeQuery("show users");// where address.cityCode=5"); 
+	    while(rs.next()) {
+      	 ImmenseDbCollection collection=(ImmenseDbCollection)  rs.getObject(1);
+      	 if(collection.toString().equals("{\"user\":\"manager\",\"password\":\"pwd123\",\"role\":[\"insert on testdb\"]}"))      		 
+      		 i++;
+         //System.out.println("CM 4"+collection);
+        }
+	    
+	    
+	    status=stmt.execute("revoke insert on testdb from manager");
+	    rs=stmnt.executeQuery("show users");// where address.cityCode=5"); 
+	    while(rs.next()) {
+      	 ImmenseDbCollection collection=(ImmenseDbCollection)  rs.getObject(1);
+      	 if(collection.toString().equals("{\"user\":\"manager\",\"password\":\"pwd123\",\"role\":[]}"))      		 
+      		 i++;
+         // System.out.println("CM 5"+collection);
+        }
+	    
+	    status=stmt.execute("drop user manager");
+	    
+    	con.close();
+		Assert.assertEquals(5,i);
+
+	}	
+
 	
 	public Connection createDnUnSQlConnection() {
         Connection con = null;
